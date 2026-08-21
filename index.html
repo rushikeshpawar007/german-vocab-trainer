@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wortschatz — Karteikasten</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f4eee2;
+    --paper-deep: #ece3d0;
+    --card: #fbf7ec;
+    --ink: #26241f;
+    --ink-soft: #5c574c;
+    --ink-faint: #8b8474;
+    --rule: #d8cdb4;
+    --blue: #2d4f8f;          /* fountain-pen blue */
+    --red: #b3382e;           /* rubber-stamp red */
+    --green: #4a6b3d;
+    --amber: #a5732a;
+    --shadow: 0 1px 2px rgba(56,48,32,.14), 0 8px 24px rgba(56,48,32,.10);
+    --serif: "Fraunces", Georgia, serif;
+    --mono: "IBM Plex Mono", Consolas, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    background: var(--paper);
+    background-image:
+      radial-gradient(ellipse 80% 60% at 50% -10%, rgba(255,252,240,.9), transparent 60%),
+      repeating-linear-gradient(0deg, transparent 0 3px, rgba(120,105,75,.022) 3px 4px);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  .wrap { max-width: 880px; margin: 0 auto; padding: 28px 20px 80px; }
+
+  /* ── Header ─────────────────────────────── */
+  header { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 6px; }
+  h1 { font-size: clamp(30px, 5.5vw, 44px); font-weight: 800; letter-spacing: -0.02em; font-variation-settings: "opsz" 144; }
+  h1 .tz { color: var(--red); }
+  .tagline { font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .14em; }
+
+  /* ── Tabs ───────────────────────────────── */
+  nav { display: flex; gap: 4px; margin: 22px 0 26px; border-bottom: 2px solid var(--ink); }
+  nav button {
+    font-family: var(--mono); font-size: 12.5px; letter-spacing: .1em; text-transform: uppercase;
+    background: transparent; border: none; color: var(--ink-soft); padding: 10px 16px 9px; cursor: pointer;
+    border: 2px solid transparent; border-bottom: none; border-radius: 6px 6px 0 0; margin-bottom: -2px;
+  }
+  nav button:hover { color: var(--ink); }
+  nav button.active { background: var(--card); color: var(--ink); border-color: var(--ink); font-weight: 600; }
+
+  .view { display: none; }
+  .view.active { display: block; animation: rise .35s ease both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  /* ── Practice: mode chips + deck info ───── */
+  .practice-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+  .modes { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .05em; cursor: pointer;
+    padding: 7px 14px; border-radius: 999px; border: 1.5px solid var(--ink-faint);
+    background: transparent; color: var(--ink-soft); transition: all .15s;
+  }
+  .chip:hover { border-color: var(--ink); color: var(--ink); }
+  .chip.active { background: var(--ink); border-color: var(--ink); color: var(--paper); font-weight: 600; }
+  .deck-info { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); }
+  .deck-info b { color: var(--red); font-weight: 600; }
+
+  /* ── The card ───────────────────────────── */
+  .card-zone { perspective: 1400px; }
+  .card {
+    position: relative; width: 100%; min-height: 340px; cursor: pointer;
+    transform-style: preserve-3d; transition: transform .55s cubic-bezier(.4,.1,.2,1);
+  }
+  .card.flipped { transform: rotateX(180deg); }
+  .face {
+    position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+    background:
+      linear-gradient(0deg, transparent 0 31px, var(--rule) 31px 32px) 0 12px / 100% 32px,
+      var(--card);
+    border: 1px solid #d9cfb8; border-radius: 10px; box-shadow: var(--shadow);
+    padding: 30px 34px 26px; display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .face::before { /* red margin line, like a real Karteikarte */
+    content: ""; position: absolute; top: 0; bottom: 0; left: 26px; width: 1px; background: rgba(179,56,46,.35);
+  }
+  .face.back { transform: rotateX(180deg); }
+  .face-label {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 4px; padding-left: 14px;
+  }
+  .face-main { flex: 1; display: flex; flex-direction: column; justify-content: center; padding-left: 14px; }
+  .prompt { font-size: clamp(26px, 4.6vw, 40px); font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; }
+  .prompt .gap { color: var(--red); border-bottom: 2px solid var(--red); padding: 0 6px; font-weight: 800; white-space: nowrap; }
+  .prompt-sub { margin-top: 10px; color: var(--ink-soft); font-style: italic; font-size: 16px; }
+  .prompt-ctx { margin-top: 14px; font-size: 19px; line-height: 1.45; color: var(--ink-soft); }
+  .prompt-ctx b { color: var(--red); font-weight: 700; }
+  .hint { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); text-align: center; padding-left: 14px; }
+
+  .back .word-line { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .back .word { font-size: clamp(24px, 4vw, 34px); font-weight: 800; color: var(--blue); }
+  .back .forms { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); }
+  .back .trans { font-size: 18px; font-style: italic; color: var(--ink); margin-top: 4px; }
+  .back .ex { margin-top: 12px; font-size: 15px; }
+  .back .ex .de { color: var(--ink); }
+  .back .ex .de b { color: var(--red); }
+  .back .ex .en { color: var(--ink-faint); font-style: italic; font-size: 13.5px; }
+  .back .fact { margin-top: 12px; font-size: 13px; color: var(--ink-soft); border-top: 1px dashed var(--rule); padding-top: 9px; }
+
+  .badges { position: absolute; top: 18px; right: 20px; display: flex; gap: 6px; }
+  .badge {
+    font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .08em;
+    padding: 3px 9px; border-radius: 3px; text-transform: uppercase;
+    transform: rotate(2deg);
+  }
+  .badge.level { border: 1.5px solid var(--red); color: var(--red); transform: rotate(-3deg); }
+  .badge.type  { border: 1.5px solid var(--ink-faint); color: var(--ink-soft); }
+
+  /* ── Grade buttons ──────────────────────── */
+  .grades { display: flex; gap: 10px; margin-top: 18px; opacity: 0; pointer-events: none; transform: translateY(6px); transition: all .3s .15s; }
+  .grades.show { opacity: 1; pointer-events: auto; transform: none; }
+  .grades button {
+    flex: 1; font-family: var(--mono); font-size: 13px; font-weight: 600; letter-spacing: .04em;
+    padding: 13px 8px; border-radius: 8px; cursor: pointer; border: 1.5px solid; background: var(--card);
+    transition: transform .1s;
+  }
+  .grades button:active { transform: scale(.97); }
+  .grades button small { display: block; font-weight: 400; font-size: 10px; color: var(--ink-faint); margin-top: 2px; }
+  .g-no   { border-color: var(--red);   color: var(--red); }
+  .g-no:hover   { background: var(--red);   color: var(--card); }
+  .g-almost { border-color: var(--amber); color: var(--amber); }
+  .g-almost:hover { background: var(--amber); color: var(--card); }
+  .g-yes  { border-color: var(--green); color: var(--green); }
+  .g-yes:hover  { background: var(--green); color: var(--card); }
+  .g-no:hover small, .g-almost:hover small, .g-yes:hover small { color: inherit; opacity: .75; }
+
+  /* ── Leitner box row ────────────────────── */
+  .leitner { display: flex; gap: 8px; margin-top: 34px; align-items: flex-end; }
+  .lbox { flex: 1; text-align: center; }
+  .lbox .slot {
+    background: var(--paper-deep); border: 1px solid var(--rule); border-bottom: 3px solid var(--ink-faint);
+    border-radius: 5px 5px 3px 3px; min-height: 34px; padding: 5px 4px 3px;
+    display: flex; flex-wrap: wrap; gap: 2px; align-content: flex-end; justify-content: center;
+  }
+  .lbox .tick { width: 7px; height: 10px; background: var(--card); border: 1px solid var(--ink-faint); border-radius: 1px; }
+  .lbox .tick.due { background: var(--red); border-color: var(--red); }
+  .lbox .lab { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); margin-top: 5px; }
+  .leitner-caption { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); text-align: center; margin-top: 10px; }
+
+  .done-note {
+    text-align: center; padding: 70px 20px; background: var(--card); border: 1px dashed var(--ink-faint);
+    border-radius: 10px;
+  }
+  .done-note .big { font-size: 30px; font-weight: 800; margin-bottom: 6px; }
+  .done-note p { color: var(--ink-soft); font-style: italic; }
+  .done-note button, .ghost-btn {
+    margin-top: 18px; font-family: var(--mono); font-size: 12px; letter-spacing: .06em; cursor: pointer;
+    background: var(--ink); color: var(--paper); border: none; padding: 11px 22px; border-radius: 6px;
+  }
+
+  /* ── Words list ─────────────────────────── */
+  .search {
+    width: 100%; font-family: var(--mono); font-size: 14px; padding: 12px 16px;
+    background: var(--card); border: 1.5px solid var(--ink-faint); border-radius: 8px; color: var(--ink);
+    margin-bottom: 18px;
+  }
+  .search:focus { outline: none; border-color: var(--blue); }
+  .wrow {
+    background: var(--card); border: 1px solid var(--rule); border-radius: 8px; margin-bottom: 8px;
+    padding: 13px 18px; cursor: pointer; transition: border-color .15s;
+  }
+  .wrow:hover { border-color: var(--ink-faint); }
+  .wrow-top { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .wrow .w { font-weight: 700; font-size: 19px; color: var(--blue); }
+  .wrow .t { font-style: italic; color: var(--ink-soft); flex: 1; min-width: 140px; }
+  .wrow .meta { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); }
+  .wrow .detail { display: none; margin-top: 10px; border-top: 1px dashed var(--rule); padding-top: 10px; font-size: 14.5px; }
+  .wrow.open .detail { display: block; }
+  .wrow .detail .ex { margin-bottom: 6px; }
+  .wrow .detail .en { color: var(--ink-faint); font-style: italic; font-size: 13px; }
+  .wrow .detail .fact { color: var(--ink-soft); font-size: 13px; margin-top: 8px; }
+  .wrow .detail .prog { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-top: 8px; }
+
+  /* ── Stats ──────────────────────────────── */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 26px; }
+  .tile { background: var(--card); border: 1px solid var(--rule); border-radius: 8px; padding: 16px 18px; box-shadow: var(--shadow); }
+  .tile .n { font-size: 34px; font-weight: 800; line-height: 1.1; }
+  .tile .n.red { color: var(--red); } .tile .n.blue { color: var(--blue); } .tile .n.green { color: var(--green); }
+  .tile .l { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); margin-top: 4px; }
+  .stat-h { font-family: var(--mono); font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); margin: 26px 0 12px; border-bottom: 1px solid var(--rule); padding-bottom: 6px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+  .bar-row .bl { font-family: var(--mono); font-size: 11px; color: var(--ink-soft); width: 92px; flex-shrink: 0; text-align: right; }
+  .bar-row .track { flex: 1; background: var(--paper-deep); border-radius: 3px; height: 20px; overflow: hidden; }
+  .bar-row .fill { height: 100%; background: var(--blue); border-radius: 3px; display: flex; align-items: center; justify-content: flex-end; padding-right: 7px; min-width: 24px; transition: width .6s ease; }
+  .bar-row .fill.red { background: var(--red); } .bar-row .fill.green { background: var(--green); } .bar-row .fill.amber { background: var(--amber); }
+  .bar-row .fill span { font-family: var(--mono); font-size: 10.5px; color: var(--paper); font-weight: 600; }
+
+  /* ── Deck filter chips ──────────────────── */
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin: -8px 0 20px; }
+  .filters .chip { font-size: 11px; padding: 5px 12px; }
+  .filters .chip.active { background: var(--blue); border-color: var(--blue); }
+
+  /* ── Sources (Quellen) ──────────────────── */
+  .src-card {
+    display: flex; gap: 18px; background: var(--card); border: 1px solid var(--rule);
+    border-radius: 10px; padding: 18px; box-shadow: var(--shadow); margin-bottom: 14px;
+    position: relative; flex-wrap: wrap;
+  }
+  .src-thumb { width: 168px; height: 94px; object-fit: cover; border-radius: 6px; border: 1px solid var(--rule); flex-shrink: 0; }
+  .src-thumb-icon { display: flex; align-items: center; justify-content: center; font-size: 38px; background: var(--paper-deep); }
+  .src-body { flex: 1; min-width: 220px; display: flex; flex-direction: column; }
+  .src-title { font-weight: 700; font-size: 17px; line-height: 1.3; }
+  .src-meta { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin: 5px 0 10px; }
+  .src-mastery { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .src-mastery .track { flex: 1; max-width: 260px; height: 10px; background: var(--paper-deep); border-radius: 5px; overflow: hidden; }
+  .src-mastery .fill { height: 100%; background: var(--green); border-radius: 5px; transition: width .5s; }
+  .src-mastery .pct { font-family: var(--mono); font-size: 11px; color: var(--ink-soft); }
+  .src-actions { display: flex; gap: 10px; margin-top: auto; flex-wrap: wrap; }
+  .src-btn {
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: .05em; cursor: pointer;
+    padding: 8px 16px; border-radius: 6px; border: 1.5px solid var(--ink); background: var(--ink);
+    color: var(--paper); text-decoration: none; display: inline-block;
+  }
+  .src-btn.ghost { background: transparent; color: var(--ink); }
+  .src-btn:hover { opacity: .85; }
+  .src-stamp {
+    position: absolute; top: 14px; right: 16px; transform: rotate(4deg);
+    font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--green); border: 2px solid var(--green); border-radius: 4px; padding: 4px 9px;
+  }
+  .src-line { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); margin-top: 12px; }
+
+  /* ── Activity heatmap (GitHub-style) ────── */
+  .hm-card { background: var(--card); border: 1px solid var(--rule); border-radius: 8px; padding: 16px 16px 12px; box-shadow: var(--shadow); }
+  .hm-flex { display: flex; align-items: flex-start; }
+  .hm-days {
+    display: grid; grid-template-rows: repeat(7, 13px); gap: 3px; margin-top: 19px; /* months row height + gap */
+    font-family: var(--mono); font-size: 9.5px; color: var(--ink-faint); padding-right: 8px; flex-shrink: 0;
+  }
+  .hm-days span { line-height: 13px; }
+  .hm-scroll { overflow-x: auto; padding-bottom: 6px; }
+  .hm-months { position: relative; height: 16px; font-family: var(--mono); font-size: 9.5px; color: var(--ink-faint); }
+  .hm-months span { position: absolute; top: 0; white-space: nowrap; }
+  .hm-grid { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 13px); grid-auto-columns: 13px; gap: 3px; }
+  .hm-box { width: 13px; height: 13px; border-radius: 2.5px; background: #e9e1cd; box-shadow: inset 0 0 0 1px rgba(56,48,32,.06); }
+  .hm-box.l1 { background: #a6d9a0; } .hm-box.l2 { background: #55b25b; }
+  .hm-box.l3 { background: #2f8a44; } .hm-box.l4 { background: #1c5c31; }
+  .hm-box.today { box-shadow: inset 0 0 0 1.5px var(--red); }
+  .hm-foot { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .hm-streaks { font-family: var(--mono); font-size: 11px; color: var(--ink-soft); }
+  .hm-streaks b { color: var(--red); }
+  .hm-legend { display: flex; align-items: center; gap: 3px; font-family: var(--mono); font-size: 9.5px; color: var(--ink-faint); }
+  .hm-legend i { width: 11px; height: 11px; border-radius: 2px; display: inline-block; background: #e9e1cd; box-shadow: inset 0 0 0 1px rgba(56,48,32,.06); }
+  .hm-legend i.l1 { background: #a6d9a0; } .hm-legend i.l2 { background: #55b25b; }
+  .hm-legend i.l3 { background: #2f8a44; } .hm-legend i.l4 { background: #1c5c31; }
+  .hm-tip {
+    position: fixed; display: none; z-index: 50; pointer-events: none;
+    font-family: var(--mono); font-size: 11px; background: var(--ink); color: var(--paper);
+    padding: 5px 10px; border-radius: 5px; white-space: nowrap; transform: translate(-50%, -130%);
+  }
+
+  footer { margin-top: 60px; text-align: center; font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); letter-spacing: .08em; }
+
+  @media (max-width: 560px) {
+    .face { padding: 24px 20px 20px; }
+    .face::before { left: 16px; }
+    .face-label, .face-main, .hint { padding-left: 8px; }
+    .grades button { font-size: 11.5px; padding: 11px 4px; }
+    .lbox .lab { font-size: 8.5px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Wort<span class="tz">schatz</span></h1>
+      <div class="tagline">Dein Karteikasten · Leitner-System</div>
+    </div>
+  </header>
+
+  <nav>
+    <button class="active" data-view="practice">Üben</button>
+    <button data-view="words">Wörter</button>
+    <button data-view="sources">Quellen</button>
+    <button data-view="stats">Statistik</button>
+  </nav>
+
+  <!-- ════ PRACTICE ════ -->
+  <section class="view active" id="view-practice">
+    <div class="practice-top">
+      <div class="modes">
+        <button class="chip active" data-mode="de-en">DE → EN</button>
+        <button class="chip" data-mode="en-de">EN → DE</button>
+        <button class="chip" data-mode="cloze">Lückentext</button>
+      </div>
+      <div class="deck-info" id="deck-info"></div>
+    </div>
+    <div class="filters" id="filters"></div>
+
+    <div id="card-area"></div>
+
+    <div class="grades" id="grades">
+      <button class="g-no" onclick="grade(0)">Keine Ahnung <small>zurück in Fach 1 · [1]</small></button>
+      <button class="g-almost" onclick="grade(1)">Fast <small>bleibt im Fach · [2]</small></button>
+      <button class="g-yes" onclick="grade(2)">Gewusst! <small>ein Fach weiter · [3]</small></button>
+    </div>
+
+    <div class="leitner" id="leitner"></div>
+    <div class="leitner-caption">Fach 1 = jeden Tag · Fach 5 = alle 8 Tage &nbsp;·&nbsp; <span style="color:var(--red)">■</span> fällig</div>
+  </section>
+
+  <!-- ════ WORDS ════ -->
+  <section class="view" id="view-words">
+    <input class="search" id="search" placeholder="suchen… (Wort, Übersetzung, Tag)">
+    <div id="word-list"></div>
+  </section>
+
+  <!-- ════ SOURCES ════ -->
+  <section class="view" id="view-sources">
+    <div id="source-list"></div>
+  </section>
+
+  <!-- ════ STATS ════ -->
+  <section class="view" id="view-stats">
+    <div class="tiles" id="tiles"></div>
+    <div class="stat-h">Aktivität — letzte 12 Monate</div>
+    <div class="hm-card">
+      <div class="hm-flex">
+        <div class="hm-days"><span>Mo</span><span></span><span>Mi</span><span></span><span>Fr</span><span></span><span></span></div>
+        <div class="hm-scroll" id="hm-scroll">
+          <div class="hm-months" id="hm-months"></div>
+          <div class="hm-grid" id="hm-grid"></div>
+        </div>
+      </div>
+      <div class="hm-foot">
+        <div class="hm-streaks" id="hm-streaks"></div>
+        <div class="hm-legend">Weniger <i></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i> Mehr</div>
+      </div>
+    </div>
+    <div class="hm-tip" id="hm-tip"></div>
+    <div class="stat-h">Niveau</div>
+    <div id="chart-levels"></div>
+    <div class="stat-h">Wortart</div>
+    <div id="chart-types"></div>
+  </section>
+
+  <footer>WORTSCHATZ · <span id="foot-count"></span> WÖRTER IM KASTEN · GEPFLEGT VON CLAUDE</footer>
+</div>
+
+<script src="data/words.js"></script>
+<script>
+/* ═══════════════════ state & persistence ═══════════════════ */
+const LS_PROG = "wortschatz.progress";   // { id: {b:box1-5, t:"YYYY-MM-DD", ok:n, no:n} }
+const LS_LOG  = "wortschatz.log";        // [ {d:"YYYY-MM-DD", ok:bool} ]
+const INTERVALS = [0, 1, 2, 4, 8];       // days per box (box1..box5)
+
+// storage can be unavailable (sandboxed previews, private mode) — degrade to in-memory
+const store = (() => {
+  try { localStorage.setItem("__t", "1"); localStorage.removeItem("__t"); return localStorage; }
+  catch { const m = {}; return { getItem: k => m[k] ?? null, setItem: (k, v) => m[k] = v }; }
+})();
+const progress = JSON.parse(store.getItem(LS_PROG) || "{}");
+const log = JSON.parse(store.getItem(LS_LOG) || "[]");
+const save = () => {
+  store.setItem(LS_PROG, JSON.stringify(progress));
+  store.setItem(LS_LOG, JSON.stringify(log.slice(-2000)));
+};
+
+const today = () => new Date().toISOString().slice(0, 10);
+const daysSince = iso => Math.floor((new Date(today()) - new Date(iso)) / 864e5);
+
+function isDue(w) {
+  const p = progress[w.id];
+  if (!p) return true; // new cards count as due
+  return daysSince(p.t) >= INTERVALS[p.b - 1];
+}
+const isNew = w => !progress[w.id];
+
+/* ═══════════════════ deck ═══════════════════ */
+let mode = "de-en";
+let deckFilter = "all";   // "all" | source id | "none" (words without a source)
+let deck = [];
+let current = null;
+let flipped = false;
+
+const srcById = id => SOURCES.find(s => s.id === id);
+const srcIcon = s => !s ? "" : s.type === "youtube" ? "📺" : s.type === "life" ? "💼" : "📄";
+const srcTag = id => { const s = srcById(id); return s ? `${srcIcon(s)} ${s.label}` : id; };
+const wordSources = w => w.sources || [];
+function pool() {
+  if (deckFilter === "all") return VOCAB;
+  if (deckFilter === "none") return VOCAB.filter(w => wordSources(w).length === 0);
+  return VOCAB.filter(w => wordSources(w).includes(deckFilter));
+}
+const filterLabel = () =>
+  deckFilter === "all" ? "alle Wörter" :
+  deckFilter === "none" ? "Wörter ohne Quelle" : (srcById(deckFilter)?.label || "Quelle");
+
+function buildDeck() {
+  const due = pool().filter(w => !isNew(w) && isDue(w));
+  const fresh = pool().filter(isNew);
+  // hardest + lowest box first, fresh words mixed in after
+  due.sort((a, b) => (progress[a.id].b - progress[b.id].b) || (b.difficulty - a.difficulty));
+  fresh.sort((a, b) => a.difficulty - b.difficulty); // ease new words in gently
+  deck = [...due, ...fresh];
+  nextCard();
+}
+
+function nextCard() {
+  current = deck.shift() || null;
+  flipped = false;
+  renderCard();
+  renderDeckInfo();
+  renderLeitner();
+}
+
+/* ═══════════════════ card faces ═══════════════════ */
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function clozeFor(w) {
+  const bare = w.word.replace(/^(der|die|das)\s+/i, "");
+  const candidates = [bare, ...(w.forms || [])].flatMap(f => f.split(" ")).filter(x => x.length > 3);
+  for (const ex of w.examples) {
+    for (const c of candidates) {
+      const re = new RegExp("\\b" + c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i");
+      if (re.test(ex.de)) return { ex, re };
+    }
+  }
+  return null;
+}
+
+function frontHTML(w) {
+  if (mode === "de-en") {
+    const cz = clozeFor(w);
+    const sentence = cz
+      ? esc(cz.ex.de).replace(cz.re, m => `<b>${m}</b>`)
+      : esc(w.examples[0].de);
+    return `<div class="prompt">${esc(w.word)}</div>
+            <div class="prompt-ctx">${sentence}</div>`;
+  }
+  if (mode === "en-de") {
+    return `<div class="prompt" style="font-style:italic">${esc(w.translations[0])}</div>
+            <div class="prompt-sub">Wie sagt man das auf Deutsch?</div>`;
+  }
+  const cz = clozeFor(w);
+  if (cz) {
+    const gapped = esc(cz.ex.de).replace(cz.re, '<span class="gap">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>');
+    return `<div class="prompt" style="font-size:clamp(20px,3.6vw,28px)">${gapped}</div>
+            <div class="prompt-sub">„${esc(cz.ex.en)}“ — welches Wort fehlt?</div>`;
+  }
+  return `<div class="prompt">${esc(w.word)}</div><div class="prompt-sub">Was heißt das auf Englisch?</div>`;
+}
+
+function backHTML(w) {
+  const exs = w.examples.slice(0, 2).map(e =>
+    `<div class="ex"><div class="de">${esc(e.de)}</div><div class="en">${esc(e.en)}</div></div>`).join("");
+  return `
+    <div class="word-line">
+      <span class="word">${esc(w.word)}</span>
+      ${w.forms && w.forms.length ? `<span class="forms">${esc(w.forms.join(" · "))}</span>` : ""}
+    </div>
+    <div class="trans">${esc(w.translations.join(" · "))}</div>
+    ${exs}
+    <div class="fact">${esc(w.facts)}</div>
+    ${wordSources(w).length ? `<div class="src-line">${esc(wordSources(w).map(srcTag).join(" · "))}</div>` : ""}`;
+}
+
+function renderCard() {
+  const area = document.getElementById("card-area");
+  const grades = document.getElementById("grades");
+  grades.classList.remove("show");
+  if (!current) {
+    const dueLater = pool().filter(w => !isDue(w)).length;
+    area.innerHTML = `
+      <div class="done-note">
+        <div class="big">Alles gelernt! 🎉</div>
+        <p>Keine Karten mehr fällig (${esc(filterLabel())}). ${dueLater} Wörter ruhen in ihren Fächern.</p>
+        <button onclick="cramAll()">Trotzdem alle nochmal üben</button>
+      </div>`;
+    return;
+  }
+  const w = current;
+  area.innerHTML = `
+    <div class="card-zone">
+      <div class="card" id="card" onclick="flip()">
+        <div class="face front">
+          <div class="badges">
+            <span class="badge level">${esc(w.level)}</span>
+            <span class="badge type">${esc(w.type)}</span>
+          </div>
+          <div class="face-label">Frage · ${isNew(w) ? "neu" : "Fach " + progress[w.id].b}</div>
+          <div class="face-main">${frontHTML(w)}</div>
+          <div class="hint">klicken oder [Leertaste] zum Umdrehen</div>
+        </div>
+        <div class="face back">
+          <div class="face-label">Antwort</div>
+          <div class="face-main" style="justify-content:flex-start">${backHTML(w)}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function flip() {
+  if (!current || flipped) return;
+  flipped = true;
+  document.getElementById("card").classList.add("flipped");
+  document.getElementById("grades").classList.add("show");
+}
+
+function grade(g) { // 0 = no idea, 1 = almost, 2 = knew it
+  if (!current || !flipped) return;
+  const p = progress[current.id] || { b: 1, t: today(), ok: 0, no: 0 };
+  if (g === 2) { p.b = Math.min(5, p.b + 1); p.ok++; }
+  else if (g === 1) { /* stays in box */ p.ok++; }
+  else { p.b = 1; p.no++; }
+  p.t = today();
+  progress[current.id] = p;
+  log.push({ d: today(), ok: g > 0 });
+  save();
+  nextCard();
+}
+
+function cramAll() {
+  deck = [...pool()].sort(() => Math.random() - 0.5);
+  nextCard();
+}
+
+/* ═══════════════════ practice chrome ═══════════════════ */
+function renderDeckInfo() {
+  const fresh = pool().filter(isNew).length;
+  document.getElementById("deck-info").innerHTML =
+    `<b>${deck.length + (current ? 1 : 0)}</b> im Stapel · ${fresh} neu`;
+}
+
+function renderFilters() {
+  const chips = [{ id: "all", label: `Alle (${VOCAB.length})` }];
+  SOURCES.forEach(s => chips.push({ id: s.id, label: `${srcIcon(s)} ${s.label} (${VOCAB.filter(w => wordSources(w).includes(s.id)).length})` }));
+  const noSrc = VOCAB.filter(w => wordSources(w).length === 0).length;
+  if (noSrc) chips.push({ id: "none", label: `Ohne Quelle (${noSrc})` });
+  document.getElementById("filters").innerHTML = chips.map(c =>
+    `<button class="chip${deckFilter === c.id ? " active" : ""}" onclick="setFilter('${c.id}')">${esc(c.label)}</button>`).join("");
+}
+
+function setFilter(id) {
+  deckFilter = id;
+  renderFilters();
+  buildDeck();
+}
+
+function renderLeitner() {
+  const boxes = [[], [], [], [], []];
+  pool().forEach(w => {
+    const p = progress[w.id];
+    if (p) boxes[p.b - 1].push(isDue(w));
+  });
+  const freshCount = pool().filter(isNew).length;
+  document.getElementById("leitner").innerHTML = boxes.map((box, i) => `
+    <div class="lbox">
+      <div class="slot">${box.map(due => `<div class="tick${due ? " due" : ""}"></div>`).join("")}
+        ${i === 0 && freshCount ? Array(freshCount).fill('<div class="tick due"></div>').join("") : ""}</div>
+      <div class="lab">Fach ${i + 1}</div>
+    </div>`).join("");
+}
+
+/* ═══════════════════ words view ═══════════════════ */
+function renderWords(filter = "") {
+  const q = filter.toLowerCase();
+  const srcText = w => wordSources(w).map(id => { const s = srcById(id); return s ? s.title + " " + s.label + " " + s.channel : ""; }).join(" ");
+  const list = VOCAB.filter(w =>
+    !q || w.word.toLowerCase().includes(q) ||
+    w.translations.join(" ").toLowerCase().includes(q) ||
+    (w.tags || []).join(" ").toLowerCase().includes(q) ||
+    w.type.includes(q) || w.level.toLowerCase().includes(q) ||
+    srcText(w).toLowerCase().includes(q)
+  );
+  document.getElementById("word-list").innerHTML = list.map(w => {
+    const p = progress[w.id];
+    return `
+    <div class="wrow" onclick="this.classList.toggle('open')">
+      <div class="wrow-top">
+        <span class="w">${esc(w.word)}</span>
+        <span class="t">${esc(w.translations[0])}</span>
+        <span class="meta">${esc(w.level)} · ${esc(w.type)} · ${"●".repeat(w.difficulty)}${"○".repeat(5 - w.difficulty)}</span>
+      </div>
+      <div class="detail">
+        ${w.examples.map(e => `<div class="ex">${esc(e.de)}<div class="en">${esc(e.en)}</div></div>`).join("")}
+        <div class="fact">${esc(w.facts)}</div>
+        <div class="prog">${p ? `Fach ${p.b} · ${p.ok}× richtig, ${p.no}× falsch` : "noch nie geübt"} · zuerst gesucht am ${w.dates_searched[0]} · ${w.search_count}× gefragt${wordSources(w).length ? ` · ${esc(wordSources(w).map(srcTag).join(", "))}` : ""}</div>
+      </div>
+    </div>`;
+  }).join("") || `<p style="color:var(--ink-faint);font-style:italic">Nichts gefunden.</p>`;
+}
+
+/* ═══════════════════ sources view ═══════════════════ */
+function renderSources() {
+  const buckets = SOURCES.map(s => ({
+    src: s,
+    words: VOCAB.filter(w => wordSources(w).includes(s.id))
+  }));
+  const noSrc = VOCAB.filter(w => wordSources(w).length === 0);
+
+  const cardFor = ({ src, words }) => {
+    const learned = words.filter(w => (progress[w.id]?.b || 1) >= 3).length;
+    const pct = words.length ? Math.round(learned / words.length * 100) : 0;
+    return `
+    <div class="src-card">
+      ${pct >= 80 ? `<div class="src-stamp">Bereit zum Nochmal-Schauen!</div>` : ""}
+      ${src.thumb ? `<img class="src-thumb" src="${esc(src.thumb)}" alt="" onerror="this.style.display='none'">` : `<div class="src-thumb src-thumb-icon">${srcIcon(src)}</div>`}
+      <div class="src-body">
+        <div class="src-title">${esc(src.title)}</div>
+        <div class="src-meta">${esc(src.channel || src.type)} · hinzugefügt am ${esc(src.added)} · ${words.length} Wörter</div>
+        <div class="src-mastery">
+          <div class="track"><div class="fill" style="width:${pct}%"></div></div>
+          <span class="pct">${pct}% sitzen (Fach 3+)</span>
+        </div>
+        <div class="src-actions">
+          <button class="src-btn" onclick="practiceSource('${esc(src.id)}')">Üben</button>
+          ${src.url ? `<a class="src-btn ghost" href="${esc(src.url)}" target="_blank" rel="noopener">Video ansehen ↗</a>` : ""}
+        </div>
+      </div>
+    </div>`;
+  };
+
+  const noSrcCard = noSrc.length ? `
+    <div class="src-card">
+      <div class="src-body">
+        <div class="src-title">Ohne Quelle</div>
+        <div class="src-meta">aus dem Chat gefragt · ${noSrc.length} Wörter</div>
+        <div class="src-actions"><button class="src-btn" onclick="practiceSource('none')">Üben</button></div>
+      </div>
+    </div>` : "";
+
+  document.getElementById("source-list").innerHTML =
+    buckets.map(cardFor).join("") + noSrcCard ||
+    `<p style="color:var(--ink-faint);font-style:italic">Noch keine Quellen erfasst.</p>`;
+}
+
+function practiceSource(id) {
+  deckFilter = id;
+  document.querySelector('nav button[data-view="practice"]').click();
+  renderFilters();
+  buildDeck();
+}
+
+/* ═══════════════════ stats view ═══════════════════ */
+function bar(label, n, max, color = "") {
+  const pct = max ? Math.max(8, Math.round(n / max * 100)) : 0;
+  return `<div class="bar-row"><div class="bl">${esc(label)}</div>
+    <div class="track"><div class="fill ${color}" style="width:${pct}%"><span>${n}</span></div></div></div>`;
+}
+
+function renderStats() {
+  const dueNow = VOCAB.filter(isDue).length;
+  const answered = log.length;
+  const correct = log.filter(e => e.ok).length;
+  const acc = answered ? Math.round(correct / answered * 100) : null;
+  const practiceDays = new Set(log.map(e => e.d)).size;
+
+  document.getElementById("tiles").innerHTML = `
+    <div class="tile"><div class="n blue">${VOCAB.length}</div><div class="l">Wörter gesamt</div></div>
+    <div class="tile"><div class="n red">${dueNow}</div><div class="l">heute fällig</div></div>
+    <div class="tile"><div class="n green">${acc === null ? "–" : acc + "%"}</div><div class="l">Trefferquote</div></div>
+    <div class="tile"><div class="n">${practiceDays}</div><div class="l">Übungstage</div></div>`;
+
+  // activity heatmap
+  const byDay = {};
+  VOCAB.forEach(w => w.dates_searched.forEach(d => byDay[d] = (byDay[d] || 0) + 1));
+  renderHeatmap(byDay);
+
+  // levels
+  const lv = {};
+  VOCAB.forEach(w => lv[w.level] = (lv[w.level] || 0) + 1);
+  const lvOrder = ["A1", "A2", "B1", "B2", "C1", "C2"].filter(l => lv[l]);
+  const maxL = Math.max(...Object.values(lv));
+  document.getElementById("chart-levels").innerHTML =
+    lvOrder.map(l => bar(l, lv[l], maxL, "red")).join("");
+
+  // types
+  const ty = {};
+  VOCAB.forEach(w => ty[w.type] = (ty[w.type] || 0) + 1);
+  const maxT = Math.max(...Object.values(ty));
+  document.getElementById("chart-types").innerHTML =
+    Object.entries(ty).sort((a, b) => b[1] - a[1]).map(([t, n]) => bar(t, n, maxT, "green")).join("");
+}
+
+/* ═══════════════════ activity heatmap ═══════════════════ */
+const MONTHS_DE = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+const isoOf = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const deDate = iso => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;
+const levelOf = n => n >= 10 ? 4 : n >= 6 ? 3 : n >= 3 ? 2 : n >= 1 ? 1 : 0;
+const COL_W = 16; // 13px box + 3px gap
+
+function renderHeatmap(byDay) {
+  const end = new Date(); end.setHours(0, 0, 0, 0);
+  const start = new Date(end);
+  start.setFullYear(start.getFullYear() - 1);
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7)); // snap back to Monday (Mon=0)
+
+  const todayIso = isoOf(end);
+  let boxes = "", months = "", lastMonth = -1;
+  const d = new Date(start);
+  for (let week = 0; isoOf(d) <= todayIso; week++) {
+    if (d.getMonth() !== lastMonth) { // label the week where a new month begins
+      if (week > 0 || d.getDate() <= 7) months += `<span style="left:${week * COL_W}px">${MONTHS_DE[d.getMonth()]}</span>`;
+      lastMonth = d.getMonth();
+    }
+    for (let day = 0; day < 7; day++) {
+      const iso = isoOf(d);
+      if (iso > todayIso) break;
+      const n = byDay[iso] || 0;
+      const lvl = levelOf(n);
+      boxes += `<div class="hm-box${lvl ? " l" + lvl : ""}${iso === todayIso ? " today" : ""}" data-iso="${iso}" data-n="${n}"></div>`;
+      d.setDate(d.getDate() + 1);
+    }
+  }
+  document.getElementById("hm-grid").innerHTML = boxes;
+  document.getElementById("hm-months").innerHTML = months;
+
+  // streak (counting back from today, or yesterday if today is still empty) + best day
+  let streak = 0;
+  const s = new Date(end);
+  if (!byDay[isoOf(s)]) s.setDate(s.getDate() - 1);
+  while (byDay[isoOf(s)]) { streak++; s.setDate(s.getDate() - 1); }
+  const best = Object.entries(byDay).sort((a, b) => b[1] - a[1])[0];
+  document.getElementById("hm-streaks").innerHTML =
+    `🔥 Serie: <b>${streak} ${streak === 1 ? "Tag" : "Tage"}</b>` +
+    (best ? ` &nbsp;·&nbsp; Bester Tag: ${deDate(best[0])} (${best[1]} Wörter)` : "");
+
+  // tooltip
+  const tip = document.getElementById("hm-tip");
+  document.querySelectorAll(".hm-box").forEach(b => {
+    b.onmouseenter = e => {
+      const r = b.getBoundingClientRect();
+      tip.textContent = `${b.dataset.n} ${b.dataset.n === "1" ? "Wort" : "Wörter"} · ${deDate(b.dataset.iso)}`;
+      tip.style.left = r.left + r.width / 2 + "px";
+      tip.style.top = r.top + "px";
+      tip.style.display = "block";
+    };
+    b.onmouseleave = () => tip.style.display = "none";
+  });
+
+  // start scrolled to the most recent weeks
+  const sc = document.getElementById("hm-scroll");
+  sc.scrollLeft = sc.scrollWidth;
+}
+
+/* ═══════════════════ navigation & keys ═══════════════════ */
+document.querySelectorAll("nav button").forEach(btn => btn.onclick = () => {
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("active", b === btn));
+  document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + btn.dataset.view));
+  if (btn.dataset.view === "stats") renderStats();
+  if (btn.dataset.view === "words") renderWords(document.getElementById("search").value);
+  if (btn.dataset.view === "sources") renderSources();
+});
+
+document.querySelectorAll(".chip").forEach(chip => chip.onclick = () => {
+  document.querySelectorAll(".chip").forEach(c => c.classList.toggle("active", c === chip));
+  mode = chip.dataset.mode;
+  if (current) deck.unshift(current); // put current card back, re-render in new mode
+  nextCard();
+});
+
+document.getElementById("search").oninput = e => renderWords(e.target.value);
+
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.code === "Space") { e.preventDefault(); flip(); }
+  if (flipped && ["1", "2", "3"].includes(e.key)) grade(Number(e.key) - 1);
+});
+
+/* ═══════════════════ boot ═══════════════════ */
+document.getElementById("foot-count").textContent = VOCAB.length;
+renderFilters();
+buildDeck();
+renderWords();
+</script>
+</body>
+</html>
