@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Wortschatz — Karteikasten</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#f4eee2">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Wortschatz">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
@@ -92,7 +99,7 @@
   .face::before { /* red margin line, like a real Karteikarte */
     content: ""; position: absolute; top: 0; bottom: 0; left: 26px; width: 1px; background: rgba(179,56,46,.35);
   }
-  .face.back { transform: rotateX(180deg); }
+  .face.back { transform: rotateX(180deg); overflow-y: auto; }
   .face-label {
     font-family: var(--mono); font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase;
     color: var(--ink-faint); margin-bottom: 4px; padding-left: 14px;
@@ -114,6 +121,12 @@
   .back .ex .de b { color: var(--red); }
   .back .ex .en { color: var(--ink-faint); font-style: italic; font-size: 13.5px; }
   .back .fact { margin-top: 12px; font-size: 13px; color: var(--ink-soft); border-top: 1px dashed var(--rule); padding-top: 9px; }
+  .grammar {
+    margin-top: 10px; font-size: 13px; color: var(--ink);
+    background: rgba(45,79,143,.07); border-left: 3px solid var(--blue);
+    border-radius: 0 5px 5px 0; padding: 7px 10px;
+  }
+  .grammar .glabel { font-family: var(--mono); font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--blue); display: block; margin-bottom: 2px; }
 
   .badges { position: absolute; top: 18px; right: 20px; display: flex; gap: 6px; }
   .badge {
@@ -405,13 +418,22 @@ const filterLabel = () =>
   deckFilter === "all" ? "alle Wörter" :
   deckFilter === "none" ? "Wörter ohne Quelle" : (srcById(deckFilter)?.label || "Quelle");
 
+function shuffle(arr) {                 // Fisher-Yates: a fresh order on every call
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 function buildDeck() {
+  // Urgency tiers stay intact — overdue cards first, lowest Leitner box first,
+  // new words last — but the order INSIDE each tier is shuffled, so no two
+  // sessions ever look the same.
   const due = pool().filter(w => !isNew(w) && isDue(w));
   const fresh = pool().filter(isNew);
-  // hardest + lowest box first, fresh words mixed in after
-  due.sort((a, b) => (progress[a.id].b - progress[b.id].b) || (b.difficulty - a.difficulty));
-  fresh.sort((a, b) => a.difficulty - b.difficulty); // ease new words in gently
-  deck = [...due, ...fresh];
+  const byBox = [1, 2, 3, 4, 5].map(b => shuffle(due.filter(w => progress[w.id].b === b)));
+  deck = [...byBox.flat(), ...shuffle(fresh)];
   nextCard();
 }
 
@@ -470,6 +492,7 @@ function backHTML(w) {
     </div>
     <div class="trans">${esc(w.translations.join(" · "))}</div>
     ${exs}
+    ${w.grammar ? `<div class="grammar"><span class="glabel">Grammatik</span>${esc(w.grammar)}</div>` : ""}
     <div class="fact">${esc(w.facts)}</div>
     ${wordSources(w).length ? `<div class="src-line">${esc(wordSources(w).map(srcTag).join(" · "))}</div>` : ""}`;
 }
@@ -593,6 +616,7 @@ function renderWords(filter = "") {
       </div>
       <div class="detail">
         ${w.examples.map(e => `<div class="ex">${esc(e.de)}<div class="en">${esc(e.en)}</div></div>`).join("")}
+        ${w.grammar ? `<div class="grammar"><span class="glabel">Grammatik</span>${esc(w.grammar)}</div>` : ""}
         <div class="fact">${esc(w.facts)}</div>
         <div class="prog">${p ? `Fach ${p.b} · ${p.ok}× richtig, ${p.no}× falsch` : "noch nie geübt"} · zuerst gesucht am ${w.dates_searched[0]} · ${w.search_count}× gefragt${wordSources(w).length ? ` · ${esc(wordSources(w).map(srcTag).join(", "))}` : ""}</div>
       </div>
@@ -779,6 +803,9 @@ document.addEventListener("keydown", e => {
 
 /* ═══════════════════ boot ═══════════════════ */
 document.getElementById("foot-count").textContent = VOCAB.length;
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});   // offline support; harmless if it fails
+}
 renderFilters();
 buildDeck();
 renderWords();

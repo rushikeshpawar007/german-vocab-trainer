@@ -28,6 +28,7 @@ Update the vocab database `data/words.js` with every German word or phrase the u
    - `translations`: most common meaning first
    - `examples`: 2–3 `{de, en}` pairs — reuse the examples already given in the chat
    - `facts`: the usage notes from the chat — false friends, register, related words, case quirks
+   - `grammar`: concise grammar rule(s) shown in a highlighted "Grammatik" box on the card — gender + plural for nouns, conjugation class/separability/reflexivity for verbs, case government (auf + Akk. etc.), declension or word-order rules for phrases. One to three short sentences.
    - `level`: honest CEFR estimate (A1–C2)
    - `difficulty`: 1–5. Consider word frequency (common = easier), irregularity, separability, false-friend risk, number of distinct meanings, and abstractness. A frequent regular word = 1–2; a polysemous or false-friend word = 3–4; rare/abstract/tricky = 5.
    - `tags`: reusable categories, e.g. `separable`, `reflexive`, `false-friend`, `colloquial`, `office-german`, `idiom`, `feminine/masculine/neuter`
